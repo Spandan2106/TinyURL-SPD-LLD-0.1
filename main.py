@@ -7,14 +7,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, HttpUrl
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
 BASE_DIR = Path(__file__).resolve().parent
+PUBLIC_DIR = BASE_DIR / "public"
+
 load_dotenv(BASE_DIR / ".env")
-STATIC_DIR = BASE_DIR / "static"
 
 
 @asynccontextmanager
@@ -24,13 +24,15 @@ async def lifespan(app: FastAPI):
     if not mongo_uri:
         raise RuntimeError("MONGODB_URI is missing.")
 
-    client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+    client = MongoClient(
+        mongo_uri,
+        serverSelectionTimeoutMS=5000,
+    )
 
     try:
         client.admin.command("ping")
 
-        database = client["tinyurl"]
-        collection = database["urls"]
+        collection = client["tinyurl"]["urls"]
         collection.create_index("code", unique=True)
 
         app.state.mongo_client = client
@@ -42,15 +44,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="TinyURL-SPD-2026",
+    title="TinyURL",
     description="URL shortener using FastAPI and MongoDB.",
     lifespan=lifespan,
-)
-
-app.mount(
-    "/static",
-    StaticFiles(directory=STATIC_DIR),
-    name="static",
 )
 
 
@@ -60,7 +56,7 @@ class URLRequest(BaseModel):
 
 @app.get("/")
 def home():
-    return FileResponse(STATIC_DIR / "index.html")
+    return FileResponse(PUBLIC_DIR / "index.html")
 
 
 @app.post("/api/urls")
@@ -99,7 +95,9 @@ def create_short_url(data: URLRequest, request: Request):
             detail="The database is temporarily unavailable.",
         ) from exc
 
-    short_url = f"{str(request.base_url).rstrip('/')}/{code}"
+    short_url = (
+        f"{str(request.base_url).rstrip('/')}/{code}"
+    )
 
     return {
         "original_url": original_url,
