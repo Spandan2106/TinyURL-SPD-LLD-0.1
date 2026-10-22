@@ -1,0 +1,7 @@
+tinyurl-project/
+├── main.py
+├── requirements.txt
+├── .env
+├── .gitignore
+└── static/
+    └── index.html

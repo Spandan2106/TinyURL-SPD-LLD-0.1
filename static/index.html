@@ -1,0 +1,314 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TinyURL-SPD-2026 - URL Shortener</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            font-family: Arial, sans-serif;
+            color: #172033;
+            background: linear-gradient(135deg, #eef2ff, #f8fafc);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 560px;
+            padding: 36px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            box-shadow: 0 16px 45px rgba(15, 23, 42, 0.08);
+        }
+
+        .logo {
+            font-size: 34px;
+            margin-bottom: 12px;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 30px;
+        }
+
+        .description {
+            margin: 0 0 28px;
+            color: #64748b;
+            line-height: 1.6;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 9px;
+            font-size: 15px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+        }
+
+        button {
+            padding: 13px 18px;
+            border: none;
+            border-radius: 9px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .submit-button {
+            width: 100%;
+            margin-top: 14px;
+            color: white;
+            background: #4f46e5;
+        }
+
+        button:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        .result {
+            margin-top: 24px;
+            padding: 18px;
+            border: 1px solid #c7d2fe;
+            border-radius: 12px;
+            background: #eef2ff;
+        }
+
+        .result h2 {
+            margin: 0 0 12px;
+            font-size: 18px;
+        }
+
+        .short-link {
+            display: block;
+            margin-bottom: 14px;
+            overflow-wrap: anywhere;
+            color: #4338ca;
+            font-weight: bold;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .open-button {
+            color: white;
+            background: #4f46e5;
+            text-decoration: none;
+            padding: 13px 18px;
+            border-radius: 9px;
+            font-weight: bold;
+        }
+
+        .copy-button {
+            color: #3730a3;
+            background: #e0e7ff;
+        }
+
+        .message {
+            margin-top: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
+
+        .error {
+            color: #b91c1c;
+        }
+
+        .success {
+            color: #166534;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        footer {
+            margin-top: 26px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 24px;
+            }
+
+            h1 {
+                font-size: 25px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="container">
+        <div class="logo">🔗</div>
+
+        <h1>URL Shortener</h1>
+
+        <p class="description">
+            Turn long URLs into short links that are easy to share.
+        </p>
+
+        <form id="urlForm">
+            <label for="urlInput">Enter your long URL</label>
+
+            <input
+                type="url"
+                id="urlInput"
+                placeholder="https://example.com/your/long/url"
+                required
+            >
+
+            <button
+                type="submit"
+                class="submit-button"
+                id="submitButton"
+            >
+                Create Short Link
+            </button>
+        </form>
+
+        <section id="result" class="result hidden">
+            <h2>Your short link is ready!</h2>
+
+            <a
+                id="shortLink"
+                class="short-link"
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer"
+            ></a>
+
+            <div class="actions">
+                <a
+                    id="openButton"
+                    class="open-button"
+                    href="#"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >Open Link</a>
+
+                <button
+                    type="button"
+                    id="copyButton"
+                    class="copy-button"
+                >Copy Link</button>
+            </div>
+        </section>
+
+        <p id="message" class="message" role="status" aria-live="polite"></p>
+
+        <footer>
+            Built with Python, FastAPI and MongoDB
+        </footer>
+    </main>
+
+    <script>
+        const urlForm = document.getElementById("urlForm");
+        const urlInput = document.getElementById("urlInput");
+        const submitButton = document.getElementById("submitButton");
+
+        const result = document.getElementById("result");
+        const shortLink = document.getElementById("shortLink");
+        const openButton = document.getElementById("openButton");
+        const copyButton = document.getElementById("copyButton");
+        const message = document.getElementById("message");
+
+        urlForm.addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            result.classList.add("hidden");
+            message.textContent = "";
+            message.className = "message";
+
+            submitButton.disabled = true;
+            submitButton.textContent = "Creating...";
+
+            try {
+                const response = await fetch("/api/urls", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        url: urlInput.value.trim()
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        data.detail || "Could not create the short link."
+                    );
+                }
+
+                shortLink.href = data.short_url;
+                shortLink.textContent = data.short_url;
+                openButton.href = data.short_url;
+
+                result.classList.remove("hidden");
+
+                message.textContent = "Short link created successfully.";
+                message.className = "message success";
+
+            } catch (error) {
+                message.textContent =
+                    error.message || "Something went wrong. Please try again.";
+
+                message.className = "message error";
+
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = "Create Short Link";
+            }
+        });
+
+        copyButton.addEventListener("click", async function () {
+            try {
+                await navigator.clipboard.writeText(shortLink.href);
+
+                message.textContent = "Short link copied to clipboard.";
+                message.className = "message success";
+
+            } catch (error) {
+                message.textContent =
+                    "Could not copy automatically. Select and copy the link.";
+
+                message.className = "message error";
+            }
+        });
+    </script>
+</body>
+</html>
